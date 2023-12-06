@@ -11,7 +11,7 @@ import java.io.Serializable;
  * oauth2用户个人信息.
  *
  * @author <a href="https://github.com/binarywang">Binary Wang</a>
- * @date 2020-10-11
+ * created on  2020-10-11
  */
 @Data
 public class WxOAuth2UserInfo implements Serializable {
@@ -53,12 +53,12 @@ public class WxOAuth2UserInfo implements Serializable {
    */
   @SerializedName("unionid")
   private String unionId;
-
   /**
    * privilege	用户特权信息，json数组，如微信沃卡用户为（chinaunicom）
    */
   @SerializedName("privilege")
   private String[] privileges;
+
 
   public static WxOAuth2UserInfo fromJson(String json) {
     return WxGsonBuilder.create().fromJson(json, WxOAuth2UserInfo.class);

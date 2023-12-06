@@ -20,15 +20,18 @@ import com.github.binarywang.wxpay.exception.WxPayException;
 import com.github.binarywang.wxpay.service.*;
 import com.github.binarywang.wxpay.util.SignUtils;
 import com.github.binarywang.wxpay.util.XmlConfig;
+import com.github.binarywang.wxpay.util.ZipUtils;
 import com.github.binarywang.wxpay.v3.util.AesUtils;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import jodd.io.ZipUtil;
+import lombok.Getter;
+import lombok.Setter;
 import me.chanjar.weixin.common.error.WxRuntimeException;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.reflect.ConstructorUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,86 +66,69 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
 
   static ThreadLocal<WxPayApiData> wxApiData = new ThreadLocal<>();
 
+
+  @Setter
+  @Getter
   private EntPayService entPayService = new EntPayServiceImpl(this);
+
+  @Getter
   private final ProfitSharingService profitSharingService = new ProfitSharingServiceImpl(this);
-  private final ProfitSharingV3Service profitSharingV3Service = new ProfitSharingV3ServiceImpl(this);
+
+  @Getter
   private final RedpackService redpackService = new RedpackServiceImpl(this);
+
+  @Getter
   private final PayScoreService payScoreService = new PayScoreServiceImpl(this);
+
+  @Getter
   private final EcommerceService ecommerceService = new EcommerceServiceImpl(this);
+
+  @Getter
   private final BusinessCircleService businessCircleService = new BusinessCircleServiceImpl(this);
+
+  @Getter
   private final MerchantMediaService merchantMediaService = new MerchantMediaServiceImpl(this);
+
+  @Getter
   private final MarketingMediaService marketingMediaService = new MarketingMediaServiceImpl(this);
+
+  @Getter
   private final MarketingFavorService marketingFavorService = new MarketingFavorServiceImpl(this);
+
+  @Getter
   private final MarketingBusiFavorService marketingBusiFavorService = new MarketingBusiFavorServiceImpl(this);
+
+  @Getter
   private final WxEntrustPapService wxEntrustPapService = new WxEntrustPapServiceImpl(this);
 
+  @Getter
+  private final PartnerTransferService partnerTransferService = new PartnerTransferServiceImpl(this);
 
-  protected Map<String, WxPayConfig> configMap;
+  @Getter
+  private final PayrollService payrollService = new PayrollServiceImpl(this);
 
-  @Override
-  public EntPayService getEntPayService() {
-    return entPayService;
-  }
+  @Getter
+  private final ComplaintService complaintsService = new ComplaintServiceImpl(this);
 
-  @Override
-  public ProfitSharingService getProfitSharingService() {
-    return profitSharingService;
-  }
+  @Getter
+  private final BankService bankService = new BankServiceImpl(this);
 
-  @Override
-  public ProfitSharingV3Service getProfitSharingV3Service() {
-    return profitSharingV3Service;
-  }
+  @Getter
+  private final TransferService transferService = new TransferServiceImpl(this);
 
-  @Override
-  public PayScoreService getPayScoreService() {
-    return payScoreService;
-  }
+  @Getter
+  private final PartnerPayScoreService partnerPayScoreService = new PartnerPayScoreServiceImpl(this);
 
-  @Override
-  public RedpackService getRedpackService() {
-    return this.redpackService;
-  }
+  @Getter
+  private final PartnerPayScoreSignPlanService partnerPayScoreSignPlanService=new PartnerPayScoreSignPlanServiceImpl(this);
 
-  @Override
-  public EcommerceService getEcommerceService() {
-    return ecommerceService;
-  }
+  @Getter
+  private final MerchantTransferService merchantTransferService = new MerchantTransferServiceImpl(this);
 
-  @Override
-  public BusinessCircleService getBusinessCircleService() {
-    return this.businessCircleService;
-  }
+  @Getter
+  private final BrandMerchantTransferService brandMerchantTransferService = new BrandMerchantTransferServiceImpl(this);
 
-  @Override
-  public MerchantMediaService getMerchantMediaService() {
-    return this.merchantMediaService;
-  }
-
-  @Override
-  public MarketingMediaService getMarketingMediaService() {
-    return this.marketingMediaService;
-  }
-
-  @Override
-  public MarketingFavorService getMarketingFavorService() {
-    return this.marketingFavorService;
-  }
-
-  @Override
-  public MarketingBusiFavorService getMarketingBusiFavorService() {
-    return this.marketingBusiFavorService;
-  }
-
-  @Override
-  public void setEntPayService(EntPayService entPayService) {
-    this.entPayService = entPayService;
-  }
-
-  @Override
-  public WxEntrustPapService getWxEntrustPapService() {
-    return wxEntrustPapService;
-  }
+  protected Map<String, WxPayConfig> configMap = new HashMap<>();
 
   @Override
   public WxPayConfig getConfig() {
@@ -223,9 +209,11 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   @Override
   public String getPayBaseUrl() {
     if (this.getConfig().isUseSandboxEnv()) {
-      return this.getConfig().getPayBaseUrl() + "/sandboxnew";
+      if (StringUtils.isNotBlank(this.getConfig().getApiV3Key())) {
+        throw new WxRuntimeException("微信支付V3 目前不支持沙箱模式！");
+      }
+      return this.getConfig().getPayBaseUrl() + "/xdc/apiv2sandbox";
     }
-
     return this.getConfig().getPayBaseUrl();
   }
 
@@ -234,10 +222,6 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
     request.checkAndSign(this.getConfig());
 
     String url = this.getPayBaseUrl() + "/secapi/pay/refund";
-    if (this.getConfig().isUseSandboxEnv()) {
-      url = this.getConfig().getPayBaseUrl() + "/sandboxnew/pay/refund";
-    }
-
     String responseContent = this.post(url, request.toXML(), true);
     WxPayRefundResult result = BaseWxPayResult.fromXML(responseContent, WxPayRefundResult.class);
     result.composeRefundCoupons();
@@ -250,10 +234,6 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
     request.checkAndSign(this.getConfig());
 
     String url = this.getPayBaseUrl() + "/secapi/pay/refundv2";
-    if (this.getConfig().isUseSandboxEnv()) {
-      url = this.getConfig().getPayBaseUrl() + "/sandboxnew/pay/refundv2";
-    }
-
     String responseContent = this.post(url, request.toXML(), true);
     WxPayRefundResult result = BaseWxPayResult.fromXML(responseContent, WxPayRefundResult.class);
     result.composePromotionDetails();
@@ -305,15 +285,22 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   }
 
   @Override
-  public WxPayRefundQueryV3Result refundQueryV3(String outTradeNo) throws WxPayException {
-    String url = String.format("%s/v3/refund/domestic/refunds/%s", this.getPayBaseUrl(), outTradeNo);
+  public WxPayRefundQueryV3Result refundQueryV3(String outRefundNo) throws WxPayException {
+    String url = String.format("%s/v3/refund/domestic/refunds/%s", this.getPayBaseUrl(), outRefundNo);
     String response = this.getV3(url);
     return GSON.fromJson(response, WxPayRefundQueryV3Result.class);
   }
 
   @Override
   public WxPayRefundQueryV3Result refundQueryV3(WxPayRefundQueryV3Request request) throws WxPayException {
-    String url = String.format("%s/v3/refund/domestic/refunds/%s", this.getPayBaseUrl(), request.getOutTradeNo());
+    String url = String.format("%s/v3/refund/domestic/refunds/%s", this.getPayBaseUrl(), request.getOutRefundNo());
+    String response = this.getV3(url);
+    return GSON.fromJson(response, WxPayRefundQueryV3Result.class);
+  }
+
+  @Override
+  public WxPayRefundQueryV3Result refundPartnerQueryV3(WxPayRefundQueryV3Request request) throws WxPayException {
+    String url = String.format("%s/v3/refund/domestic/refunds/%s?sub_mchid=%s", this.getPayBaseUrl(), request.getOutRefundNo(),request.getSubMchid());
     String response = this.getV3(url);
     return GSON.fromJson(response, WxPayRefundQueryV3Result.class);
   }
@@ -332,9 +319,10 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
         if (result.getSignType() != null) {
           // 如果解析的通知对象中signType有值，则使用它进行验签
           signType = result.getSignType();
-        } else if (this.getConfig().getSignType() != null) {
+        } else if (configMap.get(result.getMchId()).getSignType() != null) {
           // 如果配置中signType有值，则使用它进行验签
-          signType = this.getConfig().getSignType();
+          signType = configMap.get(result.getMchId()).getSignType();
+          this.switchover(result.getMchId());
         }
       }
 
@@ -350,8 +338,9 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
 
   /**
    * 校验通知签名
+   *
    * @param header 通知头信息
-   * @param data 通知数据
+   * @param data   通知数据
    * @return true:校验通过 false:校验不通过
    */
   private boolean verifyNotifySign(SignatureHeader header, String data) {
@@ -364,7 +353,17 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   }
 
   @Override
-  public WxPayOrderNotifyV3Result parseOrderNotifyV3Result(String notifyData, SignatureHeader header) throws WxPayException {
+  public WxPayNotifyV3Result parseOrderNotifyV3Result(String notifyData, SignatureHeader header) throws WxPayException {
+    return baseParseOrderNotifyV3Result(notifyData, header, WxPayNotifyV3Result.class, WxPayNotifyV3Result.DecryptNotifyResult.class);
+  }
+
+  @Override
+  public WxPayPartnerNotifyV3Result parsePartnerOrderNotifyV3Result(String notifyData, SignatureHeader header) throws WxPayException {
+    return this.baseParseOrderNotifyV3Result(notifyData, header, WxPayPartnerNotifyV3Result.class, WxPayPartnerNotifyV3Result.DecryptNotifyResult.class);
+  }
+
+  @Override
+  public <T extends WxPayBaseNotifyV3Result<E>, E> T baseParseOrderNotifyV3Result(String notifyData, SignatureHeader header, Class<T> resultType, Class<E> dataType) throws WxPayException {
     if (Objects.nonNull(header) && !this.verifyNotifySign(header, notifyData)) {
       throw new WxPayException("非法请求，头部信息验证失败");
     }
@@ -376,12 +375,12 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
     String apiV3Key = this.getConfig().getApiV3Key();
     try {
       String result = AesUtils.decryptToString(associatedData, nonce, cipherText, apiV3Key);
-      WxPayOrderNotifyV3Result.DecryptNotifyResult decryptNotifyResult = GSON.fromJson(result, WxPayOrderNotifyV3Result.DecryptNotifyResult.class);
-      WxPayOrderNotifyV3Result notifyResult = new WxPayOrderNotifyV3Result();
+      E decryptNotifyResult = GSON.fromJson(result, dataType);
+      T notifyResult = ConstructorUtils.invokeConstructor(resultType);
       notifyResult.setRawData(response);
       notifyResult.setResult(decryptNotifyResult);
       return notifyResult;
-    } catch (GeneralSecurityException | IOException e) {
+    } catch (Exception e) {
       throw new WxPayException("解析报文异常！", e);
     }
   }
@@ -416,6 +415,7 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
       WxPayRefundNotifyResult result;
       if (XmlConfig.fastMode) {
         result = BaseWxPayResult.fromXML(xmlData, WxPayRefundNotifyResult.class);
+        this.switchover(result.getMchId());
         result.decryptReqInfo(this.getConfig().getMchKey());
       } else {
         result = WxPayRefundNotifyResult.fromXML(xmlData, this.getConfig().getMchKey());
@@ -429,34 +429,22 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
 
   @Override
   public WxPayRefundNotifyV3Result parseRefundNotifyV3Result(String notifyData, SignatureHeader header) throws WxPayException {
-    if (Objects.nonNull(header) && !this.verifyNotifySign(header, notifyData)) {
-      throw new WxPayException("非法请求，头部信息验证失败");
-    }
-    OriginNotifyResponse response = GSON.fromJson(notifyData, OriginNotifyResponse.class);
-    OriginNotifyResponse.Resource resource = response.getResource();
-    String cipherText = resource.getCiphertext();
-    String associatedData = resource.getAssociatedData();
-    String nonce = resource.getNonce();
-    String apiV3Key = this.getConfig().getApiV3Key();
-    try {
-      String result = AesUtils.decryptToString(associatedData, nonce, cipherText, apiV3Key);
-      WxPayRefundNotifyV3Result.DecryptNotifyResult decryptNotifyResult = GSON.fromJson(result, WxPayRefundNotifyV3Result.DecryptNotifyResult.class);
-      WxPayRefundNotifyV3Result notifyResult = new WxPayRefundNotifyV3Result();
-      notifyResult.setRawData(response);
-      notifyResult.setResult(decryptNotifyResult);
-      return notifyResult;
-    } catch (GeneralSecurityException | IOException e) {
-      throw new WxPayException("解析报文异常！", e);
-    }
+    return this.baseParseOrderNotifyV3Result(notifyData, header, WxPayRefundNotifyV3Result.class, WxPayRefundNotifyV3Result.DecryptNotifyResult.class);
   }
 
   @Override
-  public WxScanPayNotifyResult parseScanPayNotifyResult(String xmlData, String signType) throws WxPayException {
+  public WxPayPartnerRefundNotifyV3Result parsePartnerRefundNotifyV3Result(String notifyData, SignatureHeader header) throws WxPayException {
+    return this.baseParseOrderNotifyV3Result(notifyData, header, WxPayPartnerRefundNotifyV3Result.class, WxPayPartnerRefundNotifyV3Result.DecryptNotifyResult.class);
+  }
+
+  @Override
+  public WxScanPayNotifyResult parseScanPayNotifyResult(String xmlData, @Deprecated String signType) throws WxPayException {
     try {
       log.debug("扫码支付回调通知请求参数：{}", xmlData);
       WxScanPayNotifyResult result = BaseWxPayResult.fromXML(xmlData, WxScanPayNotifyResult.class);
+      this.switchover(result.getMchId());
       log.debug("扫码支付回调通知解析后的对象：{}", result);
-      result.checkResult(this, signType, false);
+      result.checkResult(this, this.getConfig().getSignType(), false);
       return result;
     } catch (WxPayException e) {
       throw e;
@@ -467,8 +455,8 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
 
   @Override
   public WxScanPayNotifyResult parseScanPayNotifyResult(String xmlData) throws WxPayException {
-    final String signType = this.getConfig().getSignType();
-    return this.parseScanPayNotifyResult(xmlData, signType);
+//    final String signType = this.getConfig().getSignType();
+    return this.parseScanPayNotifyResult(xmlData, null);
   }
 
   @Override
@@ -519,6 +507,31 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   }
 
   @Override
+  public WxPayPartnerOrderQueryV3Result queryPartnerOrderV3(String transactionId, String outTradeNo) throws WxPayException {
+    WxPayPartnerOrderQueryV3Request request = new WxPayPartnerOrderQueryV3Request();
+    request.setOutTradeNo(StringUtils.trimToNull(outTradeNo));
+    request.setTransactionId(StringUtils.trimToNull(transactionId));
+    return this.queryPartnerOrderV3(request);
+  }
+
+  @Override
+  public WxPayPartnerOrderQueryV3Result queryPartnerOrderV3(WxPayPartnerOrderQueryV3Request request) throws WxPayException {
+    if (StringUtils.isBlank(request.getSpMchId())) {
+      request.setSpMchId(this.getConfig().getMchId());
+    }
+    if (StringUtils.isBlank(request.getSubMchId())) {
+      request.setSubMchId(this.getConfig().getSubMchId());
+    }
+    String url = String.format("%s/v3/pay/partner/transactions/out-trade-no/%s", this.getPayBaseUrl(), request.getOutTradeNo());
+    if (Objects.isNull(request.getOutTradeNo())) {
+      url = String.format("%s/v3/pay/partner/transactions/id/%s", this.getPayBaseUrl(), request.getTransactionId());
+    }
+    String query = String.format("?sp_mchid=%s&sub_mchid=%s", request.getSpMchId(), request.getSubMchId());
+    String response = this.getV3(url + query);
+    return GSON.fromJson(response, WxPayPartnerOrderQueryV3Result.class);
+  }
+
+  @Override
   public CombineQueryResult queryCombine(String combineOutTradeNo) throws WxPayException {
     String url = String.format("%s/v3/combine-transactions/out-trade-no/%s", this.getPayBaseUrl(), combineOutTradeNo);
     String response = this.getV3(url);
@@ -560,11 +573,33 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   }
 
   @Override
+  public void closePartnerOrderV3(String outTradeNo) throws WxPayException {
+    if (StringUtils.isBlank(outTradeNo)) {
+      throw new WxPayException("out_trade_no不能为空");
+    }
+    WxPayPartnerOrderCloseV3Request request = new WxPayPartnerOrderCloseV3Request();
+    request.setOutTradeNo(StringUtils.trimToNull(outTradeNo));
+    this.closePartnerOrderV3(request);
+  }
+
+  @Override
   public void closeOrderV3(WxPayOrderCloseV3Request request) throws WxPayException {
     if (StringUtils.isBlank(request.getMchid())) {
       request.setMchid(this.getConfig().getMchId());
     }
     String url = String.format("%s/v3/pay/transactions/out-trade-no/%s/close", this.getPayBaseUrl(), request.getOutTradeNo());
+    this.postV3(url, GSON.toJson(request));
+  }
+
+  @Override
+  public void closePartnerOrderV3(WxPayPartnerOrderCloseV3Request request) throws WxPayException {
+    if (StringUtils.isBlank(request.getSpMchId())) {
+      request.setSpMchId(this.getConfig().getMchId());
+    }
+    if (StringUtils.isBlank(request.getSubMchId())) {
+      request.setSubMchId(this.getConfig().getSubMchId());
+    }
+    String url = String.format("%s/v3/pay/partner/transactions/out-trade-no/%s/close", this.getPayBaseUrl(), request.getOutTradeNo());
     this.postV3(url, GSON.toJson(request));
   }
 
@@ -685,6 +720,41 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   }
 
   @Override
+  public <T> T createPartnerOrderV3(TradeTypeEnum tradeType, WxPayPartnerUnifiedOrderV3Request request) throws WxPayException {
+    WxPayUnifiedOrderV3Result result = this.unifiedPartnerOrderV3(tradeType, request);
+    //获取应用ID
+    String appId = StringUtils.isBlank(request.getSubAppid()) ? request.getSpAppid() : request.getSubAppid();
+    return result.getPayInfo(tradeType, appId, request.getSubMchId(), this.getConfig().getPrivateKey());
+  }
+
+  @Override
+  public WxPayUnifiedOrderV3Result unifiedPartnerOrderV3(TradeTypeEnum tradeType, WxPayPartnerUnifiedOrderV3Request request) throws WxPayException {
+    if (StringUtils.isBlank(request.getSpAppid())) {
+      request.setSpAppid(this.getConfig().getAppId());
+    }
+
+    if (StringUtils.isBlank(request.getSpMchId())) {
+      request.setSpMchId(this.getConfig().getMchId());
+    }
+
+    if (StringUtils.isBlank(request.getNotifyUrl())) {
+      request.setNotifyUrl(this.getConfig().getNotifyUrl());
+    }
+
+    if (StringUtils.isBlank(request.getSubAppid())) {
+      request.setSubAppid(this.getConfig().getSubAppId());
+    }
+
+    if (StringUtils.isBlank(request.getSubMchId())) {
+      request.setSubMchId(this.getConfig().getSubMchId());
+    }
+
+    String url = this.getPayBaseUrl() + tradeType.getBasePartnerUrl();
+    String response = this.postV3(url, GSON.toJson(request));
+    return GSON.fromJson(response, WxPayUnifiedOrderV3Result.class);
+  }
+
+  @Override
   public WxPayUnifiedOrderV3Result unifiedOrderV3(TradeTypeEnum tradeType, WxPayUnifiedOrderV3Request request) throws WxPayException {
     if (StringUtils.isBlank(request.getAppid())) {
       request.setAppid(this.getConfig().getAppId());
@@ -692,6 +762,10 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
     if (StringUtils.isBlank(request.getMchid())) {
       request.setMchid(this.getConfig().getMchId());
     }
+    if (StringUtils.isBlank(request.getNotifyUrl())) {
+      request.setNotifyUrl(this.getConfig().getNotifyUrl());
+    }
+
     String url = this.getPayBaseUrl() + tradeType.getPartnerUrl();
     String response = this.postV3(url, GSON.toJson(request));
     return GSON.fromJson(response, WxPayUnifiedOrderV3Result.class);
@@ -766,7 +840,7 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   }
 
   @Override
-  public byte[] createScanPayQrcodeMode1(String productId, File logoFile, Integer sideLength) {
+  public byte[] createScanPayQrcodeMode1(String productId, File logoFile, Integer sideLength) throws Exception {
     String content = this.createScanPayQrcodeMode1(productId);
     return this.createQrcode(content, logoFile, sideLength);
   }
@@ -796,11 +870,11 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   }
 
   @Override
-  public byte[] createScanPayQrcodeMode2(String codeUrl, File logoFile, Integer sideLength) {
+  public byte[] createScanPayQrcodeMode2(String codeUrl, File logoFile, Integer sideLength) throws Exception {
     return this.createQrcode(codeUrl, logoFile, sideLength);
   }
 
-  private byte[] createQrcode(String content, File logoFile, Integer sideLength) {
+  private byte[] createQrcode(String content, File logoFile, Integer sideLength) throws Exception {
     if (sideLength == null || sideLength < 1) {
       return QrcodeUtils.createQrcode(content, logoFile);
     }
@@ -880,7 +954,7 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
       Path path = Paths.get(tempDirectory.toString(), System.currentTimeMillis() + ".gzip");
       Files.write(path, responseBytes);
       try {
-        List<String> allLines = Files.readAllLines(ZipUtil.ungzip(path.toFile()).toPath(), StandardCharsets.UTF_8);
+        List<String> allLines = Files.readAllLines(ZipUtils.unGzip(path.toFile()).toPath(), StandardCharsets.UTF_8);
         return Joiner.on("\n").join(allLines);
       } catch (ZipException e) {
         if (e.getMessage().contains("Not in GZIP format")) {
@@ -897,7 +971,6 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
 
   @Override
   public WxPayFundFlowResult downloadFundFlow(String billDate, String accountType, String tarType) throws WxPayException {
-
     WxPayDownloadFundFlowRequest request = new WxPayDownloadFundFlowRequest();
     request.setBillDate(billDate);
     request.setAccountType(accountType);
@@ -933,7 +1006,7 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
       Files.write(path, responseBytes);
 
       try {
-        List<String> allLines = Files.readAllLines(ZipUtil.ungzip(path.toFile()).toPath(), StandardCharsets.UTF_8);
+        List<String> allLines = Files.readAllLines(ZipUtils.unGzip(path.toFile()).toPath(), StandardCharsets.UTF_8);
         return Joiner.on("\n").join(allLines);
       } catch (ZipException e) {
         if (e.getMessage().contains("Not in GZIP format")) {
@@ -1028,9 +1101,9 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
   public WxPayApplyBillV3Result applyFundFlowBill(WxPayApplyFundFlowBillV3Request request) throws WxPayException {
     String url;
     if (StringUtils.isBlank(request.getTarType())) {
-      url = String.format("%s/v3/bill/fundflowbill?bill_date=%s&bill_type=%s", this.getPayBaseUrl(), request.getBillDate(), request.getAccountType());
+      url = String.format("%s/v3/bill/fundflowbill?bill_date=%s&account_type=%s", this.getPayBaseUrl(), request.getBillDate(), request.getAccountType());
     } else {
-      url = String.format("%s/v3/bill/fundflowbill?bill_date=%s&bill_type=%s&tar_type=%s", this.getPayBaseUrl(), request.getBillDate(), request.getAccountType(), request.getTarType());
+      url = String.format("%s/v3/bill/fundflowbill?bill_date=%s&account_type=%s&tar_type=%s", this.getPayBaseUrl(), request.getBillDate(), request.getAccountType(), request.getTarType());
     }
     String response = this.getV3(url);
     return GSON.fromJson(response, WxPayApplyBillV3Result.class);
@@ -1100,7 +1173,7 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
     WxPayDefaultRequest request = new WxPayDefaultRequest();
     request.checkAndSign(this.getConfig());
 
-    String url = "https://api.mch.weixin.qq.com/sandboxnew/pay/getsignkey";
+    String url = "https://api.mch.weixin.qq.com/xdc/apiv2getsignkey/sign/getsignkey";
     String responseContent = this.post(url, request.toXML(), false);
     WxPaySandboxSignKeyResult result = BaseWxPayResult.fromXML(responseContent, WxPaySandboxSignKeyResult.class);
     result.checkResult(this, request.getSignType(), true);
@@ -1214,5 +1287,43 @@ public abstract class BaseWxPayServiceImpl implements WxPayService {
     WxPayQueryExchangeRateResult result = BaseWxPayResult.fromXML(responseContent, WxPayQueryExchangeRateResult.class);
     result.checkResult(this, request.getSignType(), true);
     return result;
+  }
+
+  @Override
+  public ComplaintNotifyResult parseComplaintNotifyResult(String notifyData, SignatureHeader header) throws WxPayException {
+    if (Objects.nonNull(header) && !this.verifyNotifySign(header, notifyData)) {
+      throw new WxPayException("非法请求，头部信息验证失败");
+    }
+    OriginNotifyResponse response = GSON.fromJson(notifyData, OriginNotifyResponse.class);
+    OriginNotifyResponse.Resource resource = response.getResource();
+    String cipherText = resource.getCiphertext();
+    String associatedData = resource.getAssociatedData();
+    String nonce = resource.getNonce();
+    String apiV3Key = this.getConfig().getApiV3Key();
+    try {
+      String result = AesUtils.decryptToString(associatedData, nonce, cipherText, apiV3Key);
+      ComplaintNotifyResult.DecryptNotifyResult decryptNotifyResult = GSON.fromJson(result, ComplaintNotifyResult.DecryptNotifyResult.class);
+      ComplaintNotifyResult notifyResult = new ComplaintNotifyResult();
+      notifyResult.setRawData(response);
+      notifyResult.setResult(decryptNotifyResult);
+      return notifyResult;
+    } catch (GeneralSecurityException | IOException e) {
+      throw new WxPayException("解析报文异常！", e);
+    }
+  }
+
+  @Override
+  public ComplaintService getComplaintsService() {
+    return complaintsService;
+  }
+
+  @Override
+  public BankService getBankService() {
+    return bankService;
+  }
+
+  @Override
+  public TransferService getTransferService() {
+    return transferService;
   }
 }

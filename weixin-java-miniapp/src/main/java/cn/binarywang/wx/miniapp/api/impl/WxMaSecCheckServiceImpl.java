@@ -3,6 +3,7 @@ package cn.binarywang.wx.miniapp.api.impl;
 import cn.binarywang.wx.miniapp.api.WxMaSecCheckService;
 import cn.binarywang.wx.miniapp.api.WxMaService;
 import cn.binarywang.wx.miniapp.bean.WxMaMediaAsyncCheckResult;
+import cn.binarywang.wx.miniapp.bean.security.WxMaMediaSecCheckCheckRequest;
 import cn.binarywang.wx.miniapp.bean.security.WxMaMsgSecCheckCheckRequest;
 import cn.binarywang.wx.miniapp.bean.security.WxMaMsgSecCheckCheckResponse;
 import cn.binarywang.wx.miniapp.json.WxMaGsonBuilder;
@@ -21,7 +22,7 @@ import java.io.IOException;
 import java.net.URL;
 
 import static cn.binarywang.wx.miniapp.constant.WxMaApiUrlConstants.SecCheck.*;
-import static cn.binarywang.wx.miniapp.constant.WxMaConstants.ERRCODE;
+import static me.chanjar.weixin.common.api.WxConsts.ERR_CODE;
 
 /**
  * <pre>
@@ -68,10 +69,7 @@ public class WxMaSecCheckServiceImpl implements WxMaSecCheckService {
   @Override
   public WxMaMsgSecCheckCheckResponse checkMessage(WxMaMsgSecCheckCheckRequest msgRequest) throws WxErrorException {
     String response = this.service.post(MSG_SEC_CHECK_URL, msgRequest);
-    JsonObject jsonObject = GsonParser.parse(response);
-    if (jsonObject.get(ERRCODE).getAsInt() != 0) {
-      throw new WxErrorException(WxError.fromJson(response, WxType.MiniApp));
-    }
+    parseErrorResponse(response);
     return WxMaGsonBuilder.create().fromJson(response, WxMaMsgSecCheckCheckResponse.class);
   }
 
@@ -86,4 +84,17 @@ public class WxMaSecCheckServiceImpl implements WxMaSecCheckService {
       .fromJson(this.service.post(MEDIA_CHECK_ASYNC_URL, jsonObject.toString()));
   }
 
+  @Override
+  public WxMaMediaAsyncCheckResult mediaCheckAsync(WxMaMediaSecCheckCheckRequest request) throws WxErrorException {
+    String response = this.service.post(MEDIA_CHECK_ASYNC_URL, request);
+    parseErrorResponse(response);
+    return WxMaGsonBuilder.create().fromJson(response,WxMaMediaAsyncCheckResult.class);
+  }
+
+  private void parseErrorResponse(String response) throws WxErrorException {
+    JsonObject jsonObject = GsonParser.parse(response);
+    if (jsonObject.get(ERR_CODE).getAsInt() != 0) {
+      throw new WxErrorException(WxError.fromJson(response, WxType.MiniApp));
+    }
+  }
 }
