@@ -351,10 +351,18 @@ public class WxMaApiUrlConstants {
     String GENERATE_SHORT_LINK_URL = "https://api.weixin.qq.com/wxa/genwxashortlink";
   }
 
+  /**
+   * 小程序安全
+   */
   public interface SecCheck {
     String IMG_SEC_CHECK_URL = "https://api.weixin.qq.com/wxa/img_sec_check";
     String MSG_SEC_CHECK_URL = "https://api.weixin.qq.com/wxa/msg_sec_check";
     String MEDIA_CHECK_ASYNC_URL = "https://api.weixin.qq.com/wxa/media_check_async";
+
+    /**
+     * 获取用户安全等级
+     */
+    String GET_USER_RISK_RANK = "https://api.weixin.qq.com/wxa/getuserriskrank";
   }
 
   public interface Setting {
@@ -673,6 +681,18 @@ public class WxMaApiUrlConstants {
      */
     String QUERY_FOLLOW_TRACE_URL = "https://api.weixin.qq.com/cgi-bin/express/delivery/open_msg/query_follow_trace";
 
+    /**
+     * 获取运力id列表get_delivery_list
+     * 商户使用此接口获取所有运力id的列表
+     */
+    String GET_DELIVERY_LIST_URL = "https://api.weixin.qq.com/cgi-bin/express/delivery/open_msg/get_delivery_list";
+
+    /**
+     * 获取运力id列表get_delivery_list
+     * 商户使用此接口获取所有运力id的列表
+     */
+    String UPDATE_WAYBILL_GOODS_URL = "https://api.weixin.qq.com/cgi-bin/express/delivery/open_msg/update_waybill_goods";
+
 
     /**
      * 下单接口.
@@ -751,17 +771,6 @@ public class WxMaApiUrlConstants {
        */
       String ABNORMAL_CONFIRM = "https://api.weixin.qq.com/cgi-bin/express/local/business/order/confirm_return";
 
-    }
-
-
-    /**
-     * 安全风控
-     */
-    interface SafetyRiskControl {
-      /**
-       * 获取用户的安全等级，无需用户授权
-       */
-      String GET_USER_RISK_RANK = "https://api.weixin.qq.com/wxa/getuserriskrank";
     }
 
   }
@@ -850,6 +859,7 @@ public class WxMaApiUrlConstants {
     String GET_CDN_LOGS_URL = "https://api.weixin.qq.com/wxa/sec/vod/getcdnlogs";
 
   }
+
   /**
    * 小程序虚拟支付服务相关接口
    * <pre>
@@ -879,12 +889,33 @@ public class WxMaApiUrlConstants {
    * <pre>
    * 文档地址：https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/industry/express/business/express_sale_return.html
    * </pre>
-   *
    */
-  public interface ExpressDeliveryReturn{
+  public interface ExpressDeliveryReturn {
     String ADD_DELIVERY_RETURN_URL = "https://api.weixin.qq.com/cgi-bin/express/delivery/return/add";
     String GET_DELIVERY_RETURN_URL = "https://api.weixin.qq.com/cgi-bin/express/delivery/return/get";
     String UNBIND_DELIVERY_RETURN_URL = "https://api.weixin.qq.com/cgi-bin/express/delivery/return/unbind";
+  }
+
+  /**
+   * <pre> 小程序推广员
+   * 文档地址：https://developers.weixin.qq.com/miniprogram/dev/platform-capabilities/business-capabilities/promoter/instruction/instruction.html
+   * </pre>
+   */
+  public interface Promotion {
+    String PROMOTION_ADD_ROLE = "https://api.weixin.qq.com/promoter/addrole";
+    String PROMOTION_GET_ROLE = "https://api.weixin.qq.com/promoter/getrole";
+    String PROMOTION_UPDATE_ROLE = "https://api.weixin.qq.com/promoter/updaterole";
+    String PROMOTION_ADD_PROMOTER = "https://api.weixin.qq.com/promoter/addpromoter";
+    String PROMOTION_GET_PROMOTER = "https://api.weixin.qq.com/promoter/getpromoter";
+    String PROMOTION_UPDATE_PROMOTER = "https://api.weixin.qq.com/promoter/updatepromoter";
+    String PROMOTION_GET_INVITATION_MATERIAL = "https://api.weixin.qq.com/promoter/getinvitationmaterial";
+    String PROMOTION_SEND_MSG = "https://api.weixin.qq.com/promoter/sendmsg";
+    String PROMOTION_SINGLE_SEND_MSG = "https://api.weixin.qq.com/promoter/singlesendmsg";
+    String PROMOTION_GET_MSG = "https://api.weixin.qq.com/promoter/getmsg";
+    String PROMOTION_GET_MSG_CLICK_DATA = "https://api.weixin.qq.com/promoter/getmsgclickdata";
+    String PROMOTION_GET_SHARE_MATERIAL = "https://api.weixin.qq.com/promoter/getsharematerial";
+    String PROMOTION_GET_RELATION = "https://api.weixin.qq.com/promoter/getrelation";
+    String PROMOTION_GET_ORDER = "https://api.weixin.qq.com/promoter/getorder";
   }
 
 }
